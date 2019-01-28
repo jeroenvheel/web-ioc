@@ -1,14 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
+﻿using System.Collections.Generic;
+using System.Web;
 using System.Web.Http;
+using web_ioc.Models;
 
 namespace web_ioc.Controllers
 {
     public class ValuesController : ApiController
     {
+        private ISessionModel _session;
+
+        public ValuesController(ISessionModel session)
+        {
+            _session = session;
+        }
+
         // GET api/values
         public IEnumerable<string> Get()
         {
