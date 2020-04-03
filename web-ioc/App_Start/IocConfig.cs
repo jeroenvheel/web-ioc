@@ -3,7 +3,9 @@ using Autofac.Integration.Mvc;
 using Autofac.Integration.SignalR;
 using Autofac.Integration.WebApi;
 using Microsoft.AspNet.SignalR;
+using Microsoft.AspNet.SignalR.Infrastructure;
 using Owin;
+using System.Diagnostics;
 using System.Web;
 using System.Web.Http;
 using System.Web.Mvc;
@@ -18,21 +20,40 @@ namespace web_ioc
 
         private static ISessionModel SetupSession(IComponentContext context)
         {
-            var httpBase = context.Resolve<HttpContextBase>();
+            context.TryResolve<ISessionStore>(out var store);
 
-            SessionModel session = null;
+            ISessionModel session = null;
+            var cookie = HttpContext.Current.Request.Cookies["iocHUB"]?.Value;
 
-            if (httpBase.Session["GV::Session"] == null)
+            if (!System.Guid.TryParse(cookie, out var sessionID))
             {
-                session = new SessionModel();
-                httpBase.Session["GV::Session"] = session;
+                session = CreateSession(store);
             }
             else
             {
-                session = httpBase.Session["GV::Session"] as SessionModel;
+                session = store.Contains(sessionID) 
+                    ? store.Get(sessionID)
+                    : CreateSession(store);
             }
 
-            return session as ISessionModel;
+            return session;
+        }
+
+        private static ISessionModel CreateSession(ISessionStore store)
+        {
+            var session = new SessionModel(store);
+
+            if (HttpContext.Current?.Response == null) return null;
+
+            HttpContext.Current.Response.Cookies.Add(new HttpCookie("iocHUB", $"{session.Id}") 
+            {
+                Secure = false, 
+                Shareable = false, 
+                HttpOnly = true, 
+                SameSite = SameSiteMode.Strict, 
+                Path = "/" 
+            });
+            return session;
         }
 
         private static void SetupMvc(ContainerBuilder builder)
@@ -65,7 +86,11 @@ namespace web_ioc
         }
         private static void RegisterTypes(ContainerBuilder builder)
         {
-            builder.Register(ctx => SetupSession(ctx)).As<ISessionModel>().InstancePerRequest().ExternallyOwned();
+            builder.RegisterInstance(GlobalHost.ConnectionManager).As<IConnectionManager>();
+            builder.Register(ctx => SetupSession(ctx)).As<ISessionModel>().ExternallyOwned();
+            builder.RegisterType<SessionStore>().As<ISessionStore>().SingleInstance();
+            //Hub does not support InstancePerRequest...
+            builder.RegisterType<LegendService>().As<ILegendService>().InstancePerLifetimeScope();
         }
 
         internal static void SetupContainer(IAppBuilder app)
@@ -85,17 +110,16 @@ namespace web_ioc
             config.DependencyResolver = new AutofacWebApiDependencyResolver(Container);
 
             app.UseAutofacMiddleware(Container);
+            //app.UseAutofacMvc();
 
-            //var hubconfig = new HubConfiguration
-            //{
-            //    Resolver = new Autofac.Integration.SignalR.AutofacDependencyResolver(Container)
-            //};
+            var hubconfig = new HubConfiguration
+            {
+                Resolver = new Autofac.Integration.SignalR.AutofacDependencyResolver(Container)
+            };
 
             GlobalHost.DependencyResolver = new Autofac.Integration.SignalR.AutofacDependencyResolver(Container);
-            //app.MapSignalR("/signalr", hubconfig);
 
-            app.MapSignalR();
-            app.UseAutofacMvc();
+            app.MapSignalR("/signalr", hubconfig);
         }
     }
 }

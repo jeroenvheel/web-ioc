@@ -1,22 +1,23 @@
 ﻿using System.Web.Mvc;
+using web_ioc.components;
 using web_ioc.Models;
 
 namespace web_ioc.Controllers
 {
     public class HomeController : Controller
     {
-        private ISessionModel _session;
+        private readonly ILegendService _service;
 
-        public HomeController(ISessionModel session)
+        public HomeController(ILegendService service)
         {
-            _session = session;
+            _service = service;
         }
 
         public ActionResult Index()
         {
             ViewBag.Title = "Home Page";
+            _service.Touched = true;
 
-            _session.Value = true;
 
             return View();
         }

@@ -1,28 +1,20 @@
-﻿using System.Threading.Tasks;
-using Autofac;
-using Microsoft.AspNet.SignalR;
+﻿using Microsoft.AspNet.SignalR;
 using web_ioc.Models;
 
 namespace web_ioc.Hubs
 {
     public class TestHub : Hub
     {
-        private ILifetimeScope _hubLifetimeScope;
+        private readonly ILegendService _service;
 
-        public TestHub(ILifetimeScope lifetimeScope)
+        public TestHub(ILegendService service)
         {
-            _hubLifetimeScope = lifetimeScope;
+            _service = service;
         }
 
         public void activate()
         {
             Clients.Caller.Activated();
         }
-
-        public override Task OnConnected()
-        {
-            return base.OnConnected();
-        }
-
     }
 }

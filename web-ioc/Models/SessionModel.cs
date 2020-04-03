@@ -4,7 +4,16 @@ namespace web_ioc.Models
 {
     public class SessionModel : ISessionModel
     {
+        public  Guid Id { get; }
+
         public bool Value { get; set; }
+
+        public SessionModel(ISessionStore store)
+        {
+            Id = Guid.NewGuid();
+
+            store.Set(this);
+        }
 
         #region IDisposable Support
         private bool disposedValue = false; // To detect redundant calls
